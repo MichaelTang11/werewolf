@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>room</title>
+    <link href="{{static_url('bootstrap/css/bootstrap.min.css')}}" rel="stylesheet" type="text/css">
+    <script src="{{static_url('bootstrap/js/jquery-3.0.0.js')}}"></script>
+    <script type="text/javascript" src="{{static_url('bootstrap/js/bootstrap.min.js')}}"></script>
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <script>
+        $('document').ready(function () {
+            ID = {{ UserID }}
+            ws=new WebSocket("ws://127.0.0.1:8888/CreateConnection?ID="+ID);
+            ws.onmessage=function (ev) {
+                console.log(ev.data)
+            }
+        })
+
+    </script>
+    <style>
+
+        .Avatar{
+            width: 100%;
+            padding-bottom: 100%;
+            background: #269abc;
+        }
+    </style>
+</head>
+<body>
+    <div class="container col-md-12">
+        <div class="row">
+            <div class="label label-primary col-md-2"><h4>RoomID:</h4><h5>{{RoomID}}</h5></div>
+            <div class="label label-primary col-md-2 col-md-offset-3"><h4>游戏人数:</h4><h5>{{PlayerNumber}}</h5></div>
+            <div class="label label-primary col-md-2 col-md-offset-3" ><h4>HostID:</h4><h5>{{HostID}}</h5></div>
+        </div>
+        <div class="row">
+            <div class="label label-info col-md-4 col-md-offset-4"><h5>test info</h5></div>
+        </div>
+        <div class="row">
+            {% for key in PlayerList%}
+                {%set ID=key %}
+                {%set UserName=PlayerList[key].Username %}
+                <div class="col-md-1">
+                    <p class="text-left">ID:{{ID}}</p>
+                    <div class="col-md-1 Avatar"></div>
+                    <p class="text-center">{{UserName}}</p>
+                </div>
+            {% end %}
+        </div>
+        <div class="row" data-spy="affix" data-offset-bottom="0">
+            <div class="label label-warning col-md-1">
+                <h3>01</h3>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

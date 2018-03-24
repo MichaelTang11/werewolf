@@ -1,0 +1,59 @@
+<!DOCTYPE HTML>
+<html>
+    <head>
+        <title>用户注册</title>
+        <link href="{{static_url('bootstrap/css/bootstrap.min.css')}}" rel="stylesheet" type="text/css">
+        <script src="{{static_url('bootstrap/js/jquery-3.0.0.js')}}"></script>
+        <script type="text/javascript" src="{{static_url('bootstrap/js/bootstrap.min.js')}}"></script>
+        <script>
+
+        </script>
+    </head>
+    <body>
+        <div class="container">
+            <div class="row">
+                <div class="page-header">
+                    <h1><small>请填写注册信息</small></h1>
+                </div>
+            </div>
+            <div></div>
+            <form class="form-horizontal" role="form" action="/DoRegister" method="post">
+                <div class="form-group">
+                    <label for="userName" class="col-sm-3 control-label">用户名</label>
+                    <div class="col-sm-5">
+                        {% if RegisterUsername is not None %}
+                        <input type="text" class="form-control" id="userName" placeholder="请输入用户名" required autofocus name="username" value="{{ RegisterUsername }}">
+                        {% else %}
+                        <input type="text" class="form-control" id="userName" placeholder="请输入用户名" required autofocus name="username" >
+                        {% end %}
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="password" class="col-sm-3 control-label">密码</label>
+                    <div class="col-sm-5">
+                        {% if RegisterPassword is not None %}
+                        <input type="password" class="form-control" id="password" placeholder="请输入登录密码" required name="password" value="{{ RegisterPassword }}">
+                        {% else %}
+                        <input type="password" class="form-control" id="password" placeholder="请输入登录密码" required name="password">
+                        {% end %}
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="confPassword" class="col-sm-3 control-label">确认密码</label>
+                    <div class="col-sm-5">
+                        {% if ConfPassword is not None %}
+                        <input type="password" class="form-control" id="confPassword" placeholder="请确认登录密码" required name="confPassword" value="{{ ConfPassword }}">
+                        {% else %}
+                        <input type="password" class="form-control" id="confPassword" placeholder="请确认登录密码" required name="confPassword">
+                        {% end %}
+                    </div>
+                </div>
+                <div class="form-group">
+                    <div class="col-sm-offset-3 col-sm-5">
+                        <button type="submit" class="btn btn-success btn-lg col-sm-6">立即注册</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </body>
+</html>
