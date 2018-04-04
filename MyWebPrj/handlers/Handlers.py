@@ -1,4 +1,5 @@
 import logging
+import uuid
 import tornado.web
 from methods.ConnectDb import cursor, conn
 import tornado.websocket
@@ -88,6 +89,7 @@ class CreateRoom(tornado.web.RequestHandler):  # Not Use
 class CreateRoom2(tornado.web.RequestHandler):
     def get(self):
         player_num = self.get_argument("playerNum")
+        host_name = self.get_argument("hostName")  # TODO
         logging.warn(player_num)
         cursor.execute("""
           SELECT MAX(id) FROM room
@@ -99,6 +101,7 @@ class CreateRoom2(tornado.web.RequestHandler):
           (next_id, int(player_num))
         )
         conn.commit()
+        # TODO 删hostinstance
         self.write(dict(room_id=next_id))
 
 
@@ -126,7 +129,7 @@ class Home(tornado.web.RequestHandler):
 class WaitReady(object):
     def __init__(self, room_id):
         self.room_id = room_id
-        self.player_num = 0
+        self.player_num = -1
 
     def get_player_num(self):
         cursor.execute("""
@@ -140,8 +143,27 @@ class WaitReady(object):
         return self.player_num
 
 
-
 class CreateConnection(tornado.websocket.WebSocketHandler):
+    rooms = {}
+    current_num = 0
+    current_room = 0
+
+    def open(self):
+        logging.warn("Socket is connected")
+        room_id = self.get_argument("no")
+        player_name = self.get_argument("name")
+        player_id = uuid.uuid4()
+        self.player_instance = Player(player_id, player_name)
+        wr = WaitReady(room_id)
+        self.player_num = wr.get_player_num()
+        if self.player_num == -1:
+            logging.warn("No player")
+            self.write_message(dict(ret=1, msg=u"房间不存在"))
+            return
+        ret, self.current_room = self.player_instance.CreateAndJoin(self.player_num, room_id)
+
+
+class CreateConnection3(tornado.websocket.WebSocketHandler):
     """
       ret = 0: 房间未满 
       ret = 1: 房间不存在或满了
@@ -159,7 +181,7 @@ class CreateConnection(tornado.websocket.WebSocketHandler):
         wr = WaitReady(self.current_room)
         self.player_num = wr.get_player_num()
         logging.warn("\nplayer_num: %d\n", self.player_num)
-        if not self.player_num:
+        if self.player_num == -1:
             logging.warn("No player")
             self.write_message(dict(ret=1, msg=u"房间不存在"))
             return

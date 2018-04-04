@@ -2,6 +2,26 @@ from methods.models.Characters import *
 import random
 
 
+class GameRoom2(object):
+    rooms = {}
+
+    def __init__(self, room_id, player_num):
+        self.room_id = room_id
+        self.player_num = player_num
+        self.rooms[self.room_id] = self
+        self.room_players = []
+
+    @classmethod
+    def get_room(cls, room_id):
+        room = cls.rooms.get(room_id, None)
+        return room
+
+    def cal_vote(self):
+        mmax = -1
+        for player in self.room_players[self.room_id]:
+            if player.character.Vote_Number >= mmax:
+                mmax = player.character.Vote_Number
+
 class GameRoom(object):
     Rooms = {}
     __Players = {}
