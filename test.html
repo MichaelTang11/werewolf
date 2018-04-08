@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<title>Document</title>
+	<link href="css/quill.css" rel="stylesheet">
+</head>
+<body>
+	<div id="init">
+		房间号：<input type="text" id="room">
+		名字：<input type="text" id="name">
+	</div>
+	<button onclick="goToRoom()" id="btn-init">确定</button>
+
+	<div id="current-info"></div>
+
+
+
+
+	<script>
+
+		function goToRoom() {
+
+			var room = document.getElementById("room").value;
+			var name = document.getElementById("name").value;
+			var ws = new WebSocket("ws://127.0.0.1:8888/CreateConnection?no=" + room + "&name=" + name);
+			ws.onmessage = function(event) {
+				var data = JSON.parse(event.data);
+				var ret = data.ret;
+				if (ret === 0) {
+					document.getElementById('btn-init').disabled = true;
+					var current_num = data.current_num;
+					document.getElementById("current-info").innerHTML = "当前有" + current_num + "人";
+				} else if (ret === 1) {
+					var msg = data.msg;
+					document.getElementById("current-info").innerHTML = msg;
+				} else {
+					document.getElementById('btn-init').disabled = true;
+					var character = data.character;
+					document.getElementById("current-info").innerHTML = "你是 " + character;
+				}
+			}
+		}
+	</script>
+
+</body>
+</html>

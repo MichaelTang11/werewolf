@@ -4,25 +4,45 @@ import random
 
 class GameRoom2(object):
     rooms = {}
+    room_setting = {9: {'wolf': 3, 'kami': 3, 'villager': 3}}
 
     def __init__(self, room_id, player_num):
         self.room_id = room_id
         self.player_num = player_num
         self.rooms[self.room_id] = self
-        self.room_players = []
+        self.players = []
 
     @classmethod
     def get_room(cls, room_id):
         room = cls.rooms.get(room_id, None)
         return room
 
-    def cal_vote(self):
-        mmax = -1
-        for player in self.room_players[self.room_id]:
-            if player.character.Vote_Number >= mmax:
-                mmax = player.character.Vote_Number
+    def add_player(self, player):
+        if len(self.players) < self.player_num:
+            self.players.append(player)
+            return len(self.players)
+        else:
+            return -1
 
-class GameRoom(object):
+    def give_character(self):
+        characters = []
+        characters.append(Witch())
+        characters.append(Hunter())
+        characters.append(Seer())
+        setting = self.room_setting[self.player_num]
+        characters.extend([Werewolf() for i in range(setting["wolf"])])
+        characters.extend([Villager() for i in range(setting["villager"])])
+        # TODO add kami if player_num > 9
+
+        for i in range(self.player_num):
+            j = random.randint(0, self.player_num-1)
+            characters[i], characters[j] = characters[j], characters[i]
+
+        for i in range(self.player_num):
+            self.players[i].player_instance.character = characters[i]
+
+
+class GameRoom(object):  # Not use
     Rooms = {}
     __Players = {}
     __DeadPlayerID = []
