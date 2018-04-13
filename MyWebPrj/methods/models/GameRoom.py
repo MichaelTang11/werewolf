@@ -4,22 +4,24 @@ import random
 
 class GameRoom2(object):
     rooms = {}
-    room_setting = {9: {'wolf': 3, 'kami': 3, 'villager': 3}}
+    room_setting = {9: {'wolf': 3, 'god': 3, 'villager': 3}}
 
     def __init__(self, room_id, player_num):
         self.room_id = room_id
         self.player_num = player_num
         self.rooms[self.room_id] = self
         self.players = []
+        self.wolves = set()
+        self.dead = []
 
     @classmethod
     def get_room(cls, room_id):
         room = cls.rooms.get(room_id, None)
         return room
 
-    def add_player(self, player):
+    def add_player(self, sender, player):
         if len(self.players) < self.player_num:
-            self.players.append(player)
+            self.players.append(dict(sender=sender, player=player))
             return len(self.players)
         else:
             return -1
@@ -32,14 +34,37 @@ class GameRoom2(object):
         setting = self.room_setting[self.player_num]
         characters.extend([Werewolf() for i in range(setting["wolf"])])
         characters.extend([Villager() for i in range(setting["villager"])])
-        # TODO add kami if player_num > 9
+        # TODO add god if player_num > 9
 
         for i in range(self.player_num):
             j = random.randint(0, self.player_num-1)
             characters[i], characters[j] = characters[j], characters[i]
 
         for i in range(self.player_num):
-            self.players[i].player_instance.character = characters[i]
+            name = characters[i].name
+            self.players[i]["player"].character = name
+            if name == "wolf":
+                self.players[i]["player"].if_wolf = True
+                self.wolves.add(self.players[i]["player"])
+
+    def get_alive_players(self, sender, if_wolf=False):
+        alive_players = set()
+        for m in self.players:
+            m_sender = m["sender"]
+            m_player = m["player"]
+            if m_player.alive and sender != m_sender:
+                alive_players.add(m_player)
+            if if_wolf and sender == m_sender:
+                alive_players.add(m_player)
+        if if_wolf:
+            alive_players -= self.wolves
+        return list(alive_players)
+
+    def get_player(self, player_id):
+        for m in self.players:
+            m_player = m["player"]
+            if m_player.uid == player_id:
+                return m_player
 
 
 class GameRoom(object):  # Not use

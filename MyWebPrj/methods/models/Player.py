@@ -9,6 +9,7 @@ class Player2(object):
         self.uid = _id
         self.username = username
         self.alive = True
+        self.if_wolf = False
 
 
 

@@ -1,4 +1,5 @@
 import logging
+import json
 import uuid
 import tornado.web
 from methods.ConnectDb import cursor, conn
@@ -44,6 +45,20 @@ class CreateRoom2(tornado.web.RequestHandler):
         conn.commit()
         # TODO 删hostinstance
         self.write(dict(room_id=next_id))
+
+
+class KillPerson(tornado.web.RequestHandler):
+    def get(self):
+        room_id = self.get_argument("no", 1)
+        logging.warn("room_id: %s", room_id)
+        uid = self.get_argument("uid")
+        logging.warn("uid: %s", uid)
+        room = GameRoom2.get_room(room_id)
+        player_to_kill = room.get_player(uid)
+        player_to_kill.alive = False
+        room.dead.append(player_to_kill)
+        logging.warn("Dead: %s", room.dead)
+
 
 
 class JoinRoom(tornado.web.RequestHandler):
@@ -101,12 +116,15 @@ class CreateConnection(tornado.websocket.WebSocketHandler):
             self.rooms[room_id] = room
         return self.rooms[room_id]
 
+    def get_attrs(self, attrs, obj_list):
+        return [{attr: getattr(obj, attr) for attr in attrs} for obj in obj_list]
+
     def open(self):
-        logging.warn("Socket is connected")
-        room_id = self.get_argument("no")
+        logging.warn("Socket connected")
+        room_id = self.get_argument("no", 1)  # TODO erase 1
         player_name = self.get_argument("name")
-        player_id = uuid.uuid4()
-        self.player_instance = Player2(player_id, player_name)
+        player_id = str(uuid.uuid4())  # TODO usr's id of wechat
+        player_instance = Player2(player_id, player_name)
         #wr = WaitReady(room_id)
         #player_num = wr.get_player_num()
         player_num = 9
@@ -114,19 +132,70 @@ class CreateConnection(tornado.websocket.WebSocketHandler):
             logging.warn("No player")
             self.write_message(dict(ret=1, msg=u"房间不存在"))
             return
-        room = self.current_room(room_id, player_num)
-        current_num = room.add_player(self)
+        self.room = self.current_room(room_id, player_num)
+        current_num = self.room.add_player(self, player_instance)
         if current_num == -1:
             self.write_message(dict(ret=1, msg=u"房间已满"))
             return
-        if current_num < room.player_num:
-            for player in room.players:
-                player.write_message(dict(ret=0, current_num=current_num))
-        if current_num == room.player_num:
-            room.give_character()
-            for player in room.players:
-                character = player.player_instance.character
-                player.write_message(dict(ret=2, character=character.name or 'error'))
+        if current_num < self.room.player_num:
+            for player in self.room.players:
+                player["sender"].write_message(dict(ret=0, current_num=current_num))
+        if current_num == self.room.player_num:
+            self.room.give_character()
+            wolves = list(self.room.wolves)
+            attrs = ["character", "username", "uid"]
+            for m in self.room.players:
+                m_sender = m["sender"]
+                m_player = m["player"]
+                your_character = m["player"].character
+                alive_players = self.room.get_alive_players(self, m_player.if_wolf)
+                alive = self.get_attrs(attrs, alive_players)
+                send_dict = dict(ret=2, your_character=your_character, alive=alive)
+                if m_player.if_wolf:
+                    counterpart = self.get_attrs(attrs, wolves)
+                    send_dict["wolves"] = counterpart
+                m_sender.write_message(send_dict)
+
+    def change_status(self, msg, character):
+        if character == "wolf":
+            uid_to_kill = msg["kill"]
+            killed = self.room.get_player(uid_to_kill)
+            killed.alive = False
+            self.room.dead.append(killed)
+        if character == "witch":
+            uid_to_kill = msg["kill"]
+            killed = self.room.get_player(uid_to_kill)
+            killed.alive = False
+            self.room.dead.append(killed)
+            uid_to_save = msg["save"]
+            saved = self.room.get_player(uid_to_save)
+            saved.alive = True
+            self.room.dead.remove(saved)
+        if character == "hunter":
+            uid_to_kill = msg["kill"]
+            if uid_to_kill == 0:
+                pass
+            else:
+                killed = self.room.get_player(uid_to_kill)
+                killed.alive = False
+                self.room.dead.append(killed)
+            
+    def on_message(self, msg):
+        msg = json.loads(msg)
+        character = msg["current_character"]
+        next_player = msg["ret"]
+        self.change_status(msg, character)
+        if character == "all":
+            for m in self.room.players:
+                m_sender = m["sender"]
+                m_sender.write_message(dict(ret=4))  # TODO
+        else:
+            for m in self.room.players:
+                m_sender = m["sender"]
+                m_sender.write_message(dict(ret=3))
+
+    def on_close(self):
+
 
     def check_origin(self, origin):
         return True

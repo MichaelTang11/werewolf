@@ -3,7 +3,7 @@
 <head>
 	<meta charset="UTF-8">
 	<title>Document</title>
-	<link href="css/quill.css" rel="stylesheet">
+	<!-- <link href="css/quill.css" rel="stylesheet"> -->
 </head>
 <body>
 	<div id="init">
@@ -12,20 +12,70 @@
 	</div>
 	<button onclick="goToRoom()" id="btn-init">确定</button>
 
+	<div id="character"></div>
 	<div id="current-info"></div>
 
 
-
-
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
 	<script>
+		function aliveParser(data) {
+			var alive = data.alive;
+			console.log(alive);
+			var alive_html = "<div>活着的：</div><div>";
+			for (var i = 0; i < alive.length; i ++) {
+				alive_html += "<button>" + i + "." + alive[i].username + "</button>";
+			}
+			alive_html += "</div><div>输入要杀谁<input type='text' id='wolf-input'><button id='wolf-confirm'>确认</button></div>";
+			return alive_html;
+		}
+
+        function youAreWolf(data) {
+			var counterpart = data.wolves;
+			var alive = data.alive;
+			var cp_html = "<div>所有的狼:";
+			for (var i = 0; i < counterpart.length; i ++) {
+				cp_html += counterpart[i].username + "; ";
+			}
+			cp_html += "</div>";
+			var alive_html = aliveParser(data);
+			// console.log(cp_html + alive_html);
+			return cp_html + alive_html;
+		}
+
+		function youAreWitch(data) {
+			var alive = data.alive;
+			var dead = data.dead;
+			var witch_html = "<div>"
+			for (var i = 0; i < dead.length; i ++) {
+				witch_html += i + "." + dead.username + ", ";
+			}
+			witch_html += "死了，你要救吗?</div><div>这些人还活着，要毒谁?</div><div>";
+			for (var i = 0; i < alive.length; i ++) {
+				witch_html += "<button>" + i + "." + alive[i].username + "</button>";
+			}
+			witch_html += "</div>";
+			witch_html += "<div>要救谁：<input type='text' id='witch-save'>要杀谁：<input type='text' id='witch-kill'>" + 
+			    "<button id='witch-confirm'>确认</button><button id='witch-cancel'>放弃</button>";
+			return witch_html;
+		}
+
+		// function youAreWitchKill(data) {
+		// 	var alive = data.alive;
+		// 	var kill_html = "<div>";
+		// 	for (var i = 0; i < alive.length; i ++) {
+		// 		kill_html += "<button>" + i + "." + alive[i].username + "</button>";
+		// 	}
+		// 	kill_html += "</div><div>要杀谁<input type='text' id='witch-kill'><button id='witch-kill-conf'>确认</button>" +
+		// 	    "<button id='witch-kill-canl'>不杀</button>";
+		// 	return kill_html;
+		// }
 
 		function goToRoom() {
-
 			var room = document.getElementById("room").value;
 			var name = document.getElementById("name").value;
-			var ws = new WebSocket("ws://127.0.0.1:8888/CreateConnection?no=" + room + "&name=" + name);
+			window.ws = new WebSocket("ws://127.0.0.1:8888/CreateConnection?no=" + room + "&name=" + name);
 			ws.onmessage = function(event) {
-				var data = JSON.parse(event.data);
+				window.data = JSON.parse(event.data);
 				var ret = data.ret;
 				if (ret === 0) {
 					document.getElementById('btn-init').disabled = true;
@@ -34,13 +84,58 @@
 				} else if (ret === 1) {
 					var msg = data.msg;
 					document.getElementById("current-info").innerHTML = msg;
-				} else {
+				} else if (ret === 2) {
 					document.getElementById('btn-init').disabled = true;
-					var character = data.character;
-					document.getElementById("current-info").innerHTML = "你是 " + character;
+					var character = data.your_character;
+					document.getElementById("character").innerHTML = "你是" + character;
+					document.getElementById("current-info").innerHTML = "天黑了请闭眼";
+					if (character == "wolf") {
+				        document.getElementById("current-info").innerHTML = "狼人请睁眼" + youAreWolf(data);
+						$("#wolf-confirm").click(function() {
+							console.log(window.data);
+							var kill = parseInt(document.getElementById("wolf-input").value);
+							var alive = window.data.alive;
+							var uid = alive[kill].uid;
+							window.ws.send(JSON.stringify({ret: "witch", kill: uid, current_player: "wolf"}));
+							document.getElementById("current-info").innerHTML = "狼人请闭眼";
+						})
+					}
+				} else if (ret === 3) {
+					document.getElementById("current-info").innerHTML = "天黑了请闭眼";
+					var current_character = data.current_character;
+					switch (current_character) {
+						case "witch": 
+						     document.getElementById("current-info").innerHTML = "女巫请睁眼" + youAreWitchSave(data);
+							 $("#witch-confirm").click(function() {
+								 var save = parseInt(document.getElementById("witch-save").value) || -1;
+								 var kill = parseInt(document.getElementById("witch-cancel").value) || -1;
+								 var alive = window.data.alive;
+								 var dead = window.data.dead;
+								 save = dead[save].uid || 0;
+								 kill = alive[kill].uid || 0;
+								 window.ws.send(JSON.stringify({ret: "seer", kill: kill, save: save, current_player: "witch"}));
+							 });
+							 $("#witch-cancel").click(function() {
+								 window.ws.send(JSON.stringify({ret: "seer", kill: 0, save: 0, current_player: "witch"}));
+							 });
+							 break;
+						case "seer":
+					}
+					console.log(3);
+				} else if (ret === 4) {
+					console.log(4);
 				}
-			}
+			};
 		}
+
+        // $("body").on("click", "#wolf-confirm", function() {
+		// 	console.log(window.data);
+		// 	var kill = parseInt(document.getElementById("wolf-input").value);
+		// 	var alive = window.data.alive;
+		// 	var uid = alive[kill].uid;
+		// 	window.ws.send(JSON.stringify({ret: "witch", kill: uid}));
+		// })
+				
 	</script>
 
 </body>
