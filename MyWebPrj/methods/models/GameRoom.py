@@ -34,7 +34,6 @@ class GameRoom2(object):
         setting = self.room_setting[self.player_num]
         characters.extend([Werewolf() for i in range(setting["wolf"])])
         characters.extend([Villager() for i in range(setting["villager"])])
-        # TODO add god if player_num > 9
 
         for i in range(self.player_num):
             j = random.randint(0, self.player_num-1)
@@ -43,6 +42,7 @@ class GameRoom2(object):
         for i in range(self.player_num):
             name = characters[i].name
             self.players[i]["player"].character = name
+            self.players[i]["player"].char = character[i]
             if name == "wolf":
                 self.players[i]["player"].if_wolf = True
                 self.wolves.add(self.players[i]["player"])
@@ -60,11 +60,93 @@ class GameRoom2(object):
             alive_players -= self.wolves
         return list(alive_players)
 
+    def get_all_alive(self):
+        alive_players = []
+        for m in self.players:
+            m_player = m["player"]
+            if m_player.alive:
+                alive_players.append(m_player)
+        return alive_players
+
+    def kill_player(self, player_id):
+        killed = self.get_player(player_id)
+        if killed:
+            killed.alive = False
+            self.dead.append(killed)
+            return 1
+        else:
+            return 0
+
+    def save_player(self, player_id):
+        saved = self.get_player(player_id)
+        if saved:
+            saved.alive = True
+            self.dead.remove(saved)
+            return 1
+        else:
+            return 0
+
+    def vote_player(self, player_id):
+        voted = self.get_player(player_id)
+        if voted:
+            voted.vote += 1
+
+    def get_all_players(self):
+        all_players = []
+        for m in self.players:
+            m_player = m["player"]
+            all_players.append(m_player)
+        return all_players
+
     def get_player(self, player_id):
         for m in self.players:
             m_player = m["player"]
             if m_player.uid == player_id:
                 return m_player
+        else:
+            return None
+
+    def get_player_by_sender(self, sender):
+        for m in self.players:
+            if m["sender"] == sender:
+                return m["player"]
+
+    def vote_finish(self):
+        voted = []
+        for m in self.players:
+            m_player = m["player"]
+            if m_player.voted == True:
+                voted.append(m_player)
+        return voted
+
+    def vote_caculate(self):
+        target = None
+        _max = 0
+        for m in self.players:
+            m_player = m["player"]
+            if m_player.vote > _max:
+                _max = m_player.vote
+                target = m_player
+            m_player.vote = 0
+            m_player.voted = False
+        return {'get_vote': _max, "target": target}
+
+    def judge_win(self):
+        good_dead = 0
+        bad_dead = 0
+        for m in self.players:
+            m_player = m["player"]
+            if not m_player.alive:
+                if m_player.character == "wolf":
+                    bad_dead += 1
+                else:
+                    good_dead += 1
+        if good_dead == 6:
+            return 0
+        elif bad_dead == 3:
+            return 1
+        else:
+            return 2
 
 
 class GameRoom(object):  # Not use

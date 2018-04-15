@@ -47,9 +47,9 @@ class CreateRoom2(tornado.web.RequestHandler):
         self.write(dict(room_id=next_id))
 
 
-class KillPerson(tornado.web.RequestHandler):
+class VotePerson(tornado.web.RequestHandler):
     def get(self):
-        room_id = self.get_argument("no", 1)
+        room_id = self.get_argument("no")
         logging.warn("room_id: %s", room_id)
         uid = self.get_argument("uid")
         logging.warn("uid: %s", uid)
@@ -125,6 +125,7 @@ class CreateConnection(tornado.websocket.WebSocketHandler):
         player_name = self.get_argument("name")
         player_id = str(uuid.uuid4())  # TODO usr's id of wechat
         player_instance = Player2(player_id, player_name)
+        self.you = player_instance
         #wr = WaitReady(room_id)
         #player_num = wr.get_player_num()
         player_num = 9
@@ -148,51 +149,91 @@ class CreateConnection(tornado.websocket.WebSocketHandler):
                 m_sender = m["sender"]
                 m_player = m["player"]
                 your_character = m["player"].character
+                your_uid = m["player"].uid
                 alive_players = self.room.get_alive_players(self, m_player.if_wolf)
                 alive = self.get_attrs(attrs, alive_players)
-                send_dict = dict(ret=2, your_character=your_character, alive=alive)
+                send_dict = dict(ret=2, your_character=your_character, your_uid=your_uid, alive=alive)
                 if m_player.if_wolf:
                     counterpart = self.get_attrs(attrs, wolves)
                     send_dict["wolves"] = counterpart
                 m_sender.write_message(send_dict)
 
-    def change_status(self, msg, character):
-        if character == "wolf":
-            uid_to_kill = msg["kill"]
-            killed = self.room.get_player(uid_to_kill)
-            killed.alive = False
-            self.room.dead.append(killed)
-        if character == "witch":
-            uid_to_kill = msg["kill"]
-            killed = self.room.get_player(uid_to_kill)
-            killed.alive = False
-            self.room.dead.append(killed)
-            uid_to_save = msg["save"]
-            saved = self.room.get_player(uid_to_save)
-            saved.alive = True
-            self.room.dead.remove(saved)
-        if character == "hunter":
-            uid_to_kill = msg["kill"]
-            if uid_to_kill == 0:
-                pass
-            else:
-                killed = self.room.get_player(uid_to_kill)
-                killed.alive = False
-                self.room.dead.append(killed)
+    def change_status(self, msg, character, uid):
+        # status = self.room.get_player(uid).alive
+        status = self.you.alive
+        logging.warn("Alive?: %s", status)
+        if status:
+            if character == "wolf":
+                uid_to_kill = msg["kill"]
+                self.room.kill_player(uid_to_kill)
+            if character == "witch":
+                uid_to_kill = msg["kill"]
+                ret_kill = self.room.kill_player(uid_to_kill)
+                self.you.char.Poison_Number = 0 if ret_kill else 1
+                uid_to_save = msg["save"]
+                ret_save = self.room.save_player(uid_to_save)
+                self.you.char.Antidote_Number = 0 if ret_save else 1
+            if character == "hunter":
+                uid_to_kill = msg["kill"]
+                if uid_to_kill == 0:
+                    pass
+                else:
+                    ret_kill = self.room.kill_player(uid_to_kill)
+                    self.you.char.Hunt = 0 if ret_save else 1
+            if character == "all":
+                uid_to_vote = msg["vote"]
+                self.room.vote_player(uid_to_vote)
+                self.you.voted = True
             
     def on_message(self, msg):
+        if_wolf = False
         msg = json.loads(msg)
         character = msg["current_character"]
         next_player = msg["ret"]
-        self.change_status(msg, character)
-        if character == "all":
+        uid = msg["uid"]
+        self.change_status(msg, character, uid)
+        if character == "wolf":
+            if_wolf = True
+        dead_players = self.room.dead
+        all_alive = self.room.get_all_alive()
+        all_players = self.room.get_all_players()
+        attrs = ["character", "username", "uid", "alive"]
+        all_players = self.get_attrs(attrs, all_players)
+        dead = self.get_attrs(attrs, dead_players)
+
+        if next_player == "vote":
+            alive_num = len(all_alive)
+            vote_finish = self.room.vote_finish()
+            vote_num = len(vote_finish)
+            if vote_num < alive_num:
+                for m in self.room.players:
+                    m_sender = m["sender"]
+                    current_status = m["player"].alive
+                    voted = m["player"].voted
+                    if voted:
+                        m_sender.write_message(dict(ret=5, current_status=current_status, vote_num=vote_num, voted=voted))
+            else:
+                vote_result =  self.room.vote_caculate()
+                for m in self.room.players:
+                    m_sender = m["sender"]
+                    current_status = m["player"].alive
+                    m_sender.write_message(dict(ret=6, vote_result=vote_result))
+        elif next_player == "all":
+            all_alive_attr = self.get_attrs(attrs, all_alive)
+            win = self.room.judge_win()
             for m in self.room.players:
                 m_sender = m["sender"]
-                m_sender.write_message(dict(ret=4))  # TODO
+                current_status = m["player"].alive
+                m_sender.write_message(dict(ret=4, all_alive=all_alive_attr, dead=dead, win=win, current_status=current_status))
+            self.room.dead = []
         else:
+            alive_players = self.room.get_alive_players(self, if_wolf)
+            alive = self.get_attrs(attrs, alive_players)
             for m in self.room.players:
                 m_sender = m["sender"]
-                m_sender.write_message(dict(ret=3))
+                current_status = m["player"].alive
+                player_skill = m["player"].char.__dict__
+                m_sender.write_message(dict(ret=3, current_status=current_status, current_character=next_player, alive=alive, dead=dead, all_players=all_players, player_skill=player_skill))
 
     def on_close(self):
 

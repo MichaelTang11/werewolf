@@ -3,14 +3,15 @@ from methods.models.Characters import *
 
 
 class Player2(object):
-    character = None
-
     def __init__(self, _id, username):
         self.uid = _id
         self.username = username
         self.alive = True
         self.if_wolf = False
-
+        self.vote = 0
+        self.character = None
+        self.char = None
+        self.votes = False
 
 
 class Player(object):  # Not use

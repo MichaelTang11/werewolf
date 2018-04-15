@@ -63,8 +63,8 @@ class Werewolf(Character):
 class Witch(Character):
     name = "witch"
 
-    __Antidote_Number=1
-    __Poison_Number=1
+    Antidote_Number=1
+    Poison_Number=1
 
     def Save(self,PlayerID, room):
         players = room.Players
@@ -82,6 +82,8 @@ class Witch(Character):
 
 class Hunter(Character):
     name = "hunter"
+
+    Hunt = 1
 
     @staticmethod
     def Shoot(PlayerID, room):
