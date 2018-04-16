@@ -1,3 +1,4 @@
+import logging
 from methods.models.Characters import *
 import random
 
@@ -42,7 +43,7 @@ class GameRoom2(object):
         for i in range(self.player_num):
             name = characters[i].name
             self.players[i]["player"].character = name
-            self.players[i]["player"].char = character[i]
+            self.players[i]["player"].char = characters[i]
             if name == "wolf":
                 self.players[i]["player"].if_wolf = True
                 self.wolves.add(self.players[i]["player"])
@@ -71,6 +72,7 @@ class GameRoom2(object):
     def kill_player(self, player_id):
         killed = self.get_player(player_id)
         if killed:
+            logging.warn("kill: %s, %s", killed.username, killed.character)
             killed.alive = False
             self.dead.append(killed)
             return 1
@@ -80,6 +82,7 @@ class GameRoom2(object):
     def save_player(self, player_id):
         saved = self.get_player(player_id)
         if saved:
+            logging.warn("save: %s, %s", saved.username, saved.character)
             saved.alive = True
             self.dead.remove(saved)
             return 1
@@ -119,16 +122,27 @@ class GameRoom2(object):
                 voted.append(m_player)
         return voted
 
+    def get_attrs(self, attrs, obj_list):
+        return [{attr: getattr(obj, attr) for attr in attrs} for obj in obj_list]
+
     def vote_caculate(self):
-        target = None
+        target = []
         _max = 0
+        players = []
         for m in self.players:
             m_player = m["player"]
-            if m_player.vote > _max:
-                _max = m_player.vote
-                target = m_player
+            players.append(m_player)
+        _max = sorted(players, key=lambda p: p.vote, reverse=True)[0]
+        for m in self.players:
+            m_player = m["player"]
+            if m_player.vote == _max:
+                m_player.alive = False
+                target.append(m_player)
             m_player.vote = 0
             m_player.voted = False
+        attrs = ["character", "username", "uid"]
+        target = self.get_attrs(attrs, target)
+        logging.warn(target)
         return {'get_vote': _max, "target": target}
 
     def judge_win(self):

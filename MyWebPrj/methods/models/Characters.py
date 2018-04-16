@@ -63,8 +63,9 @@ class Werewolf(Character):
 class Witch(Character):
     name = "witch"
 
-    Antidote_Number=1
-    Poison_Number=1
+    def __init__(self):
+        self.antidote_number = 1
+        self.poison_number = 1
 
     def Save(self,PlayerID, room):
         players = room.Players
@@ -80,15 +81,18 @@ class Witch(Character):
     def ReturnMedicineStatus(self):
         return self.__Antidote_Number,self.__Poison_Number
 
+
 class Hunter(Character):
     name = "hunter"
 
-    Hunt = 1
+    def __init__(self):
+        self.hunt = 1
 
     @staticmethod
     def Shoot(PlayerID, room):
         players = room.Players
         players[PlayerID].Life = 0
+
 
 class Seer(Character):
     name = "seer"

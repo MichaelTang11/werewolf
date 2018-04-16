@@ -11,5 +11,4 @@ url={
     (r'/JoinRoom',JoinRoom),
     (r'/GetOpenID',GetOpenID),
     (r'/CreateRoom2', CreateRoom2),
-    (r'/KillPerson', KillPerson),
 }

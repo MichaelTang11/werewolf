@@ -11,7 +11,7 @@ class Player2(object):
         self.vote = 0
         self.character = None
         self.char = None
-        self.votes = False
+        self.voted = False
 
 
 class Player(object):  # Not use
