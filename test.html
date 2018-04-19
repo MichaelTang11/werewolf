@@ -20,7 +20,6 @@
 	<script>
 		function aliveParser(data) {
 			var alive = data.alive;
-			console.log(alive);
 			var alive_html = "<div>活着的：</div><div>";
 			for (var i = 0; i < alive.length; i ++) {
 				alive_html += "<button>" + (i + 1) + "." + alive[i].username + "</button>";
@@ -46,11 +45,8 @@
 			var alive = data.alive;
 			var dead = data.dead;
 			var player_skill = data.player_skill;
-			console.log(player_skill);
 			var poison = player_skill.poison_number;
 			var antidote = player_skill.antidote_number;
-			console.log("poison: " + poison);
-			console.log("antidote: " + antidote);
 			var witch_html = "<div>"
 			for (var i = 0; i < dead.length; i ++) {
 				witch_html += (i + 1) + "." + dead[i].username + ", ";
@@ -70,7 +66,9 @@
 			var all_players = data.all_players;
 			var seer_html = "<div>活着的："
 			for (var i = 0; i < all_players.length; i ++) {
-				seer_html += "<button>" + (i + 1) + "." + all_players[i].username + "</button>";
+				if (all_players[i].character !== "seer") {
+					seer_html += "<button>" + (i + 1) + "." + all_players[i].username + "</button>";
+				}
 			}
 			seer_html += "</div>";
 			seer_html += "<div>要验谁：<input type='text' id='seer-input'><button id='seer-check'>开验</button></div>" +
@@ -81,7 +79,7 @@
 		function youAreDeadHunter(data) {
 			var player_skill = data.player_skill;
 			var hunt = player_skill.hunt;
-			var alive = data.alive;
+			var alive = data.all_alive;
 			var hunter_html = "<div>"
 			for (var i = 0; i < alive.length; i ++) {
 				hunter_html += "<button>" + (i + 1) + "." + alive[i].username + "</button>";
@@ -105,23 +103,28 @@
 				}
 				night_html += "死了</div>";
 			}
-			night_html += "<div>开始投票";
-			for (var i = 0; i < all_alive.length; i ++) {
-				night_html += "<button>" + (i + 1) + "." + all_alive[i].username + "</button>";
+			if (!current_status) {
+				night_html += "你已经死了";
+				return night_html;
+			} else {
+				night_html += "<div>开始投票";
+				for (var i = 0; i < all_alive.length; i ++) {
+					night_html += "<button>" + (i + 1) + "." + all_alive[i].username + "</button>";
+				}
+				night_html += "</div>";
+				night_html += "<div>投票：<input type='text' id='vote-input'" + (!current_status ? " disabled" : "") + "></div>";
+				night_html += "<button id='vote-confirm'>确定</button>";
+				return night_html;
 			}
-			night_html += "</div>";
-			night_html += "<div>投票：<input type='text' id='vote-input'" + (!current_status ? " disabled" : "") + "></div>";
-			night_html += "<button id='vote-confirm'>确定</button>";
-			return night_html;
 		}
 
 		function voteResult(data) {
 			var vote_result = data.vote_result;
 			var get_vote = vote_result.get_vote;
-			var target = vote.target;
+			var target = vote_result.target;
 			var vote_html = "";
 			for (var i =0; i < target.length; i ++) {
-				vote_html += target.username + ", ";
+				vote_html += target[i].username + ", ";
 			}
 			vote_html += "被投死了" + "<button id='your-confirm'>确定</button>";
 			return vote_html;
@@ -142,18 +145,16 @@
 			document.getElementById('btn-init').disabled = true;
 			window.character = data.your_character;
 			window.your_uid = data.your_uid;
-			console.log(window.your_uid);
 			document.getElementById("character").innerHTML = "你是" + character;
 			document.getElementById("current-info").innerHTML = "天黑了请闭眼";
 			if (character == "wolf") {
 				document.getElementById("current-info").innerHTML = "狼人请睁眼" + youAreWolf(data);
 				$("#wolf-confirm").click(function() {
-					console.log(window.data);
 					var kill = parseInt(document.getElementById("wolf-input").value);
 					kill --;
 					var alive = window.data.alive;
 					var uid = alive[kill].uid;
-					window.ws.send(JSON.stringify({ret: "witch", kill: uid, current_player: window.character, uid: window.your_uid}));
+					window.ws.send(JSON.stringify({ret: "witch", kill: uid, current_player: window.character}));
 					document.getElementById("current-info").innerHTML = "狼人请闭眼";
 				})
 			}
@@ -163,12 +164,20 @@
 			var current_character = data.current_character;
 			document.getElementById("current-info").innerHTML = "天黑了请闭眼，" + current_character + "请睁眼";
 			var current_status = data.current_status;
-			console.log(current_character + "=>" + current_status);
 			if (current_character == window.character) {
 				if (current_status) {
 					switch (current_character) {
 						case "wolf":
 						    document.getElementById("current-info").innerHTML = "狼人请睁眼" + youAreWolf(data);
+							$("#wolf-confirm").click(function() {
+								var kill = parseInt(document.getElementById("wolf-input").value);
+								kill --;
+								var alive = window.data.alive;
+								var uid = alive[kill].uid;
+								window.ws.send(JSON.stringify({ret: "witch", kill: uid, current_player: window.character}));
+								document.getElementById("current-info").innerHTML = "狼人请闭眼";
+							});
+							break;
 						case "witch": 
 							document.getElementById("current-info").innerHTML = "女巫请睁眼" + youAreWitch(data);
 							$("#witch-confirm").click(function() {
@@ -180,7 +189,7 @@
 								var dead = window.data.dead;
 								save = dead[save] ? dead[save].uid : 0;
 								kill = alive[kill] ? alive[kill].uid : 0;
-								window.ws.send(JSON.stringify({ret: "seer", kill: kill, save: save, current_player: window.character, uid: window.your_uid}));
+								window.ws.send(JSON.stringify({ret: "seer", kill: kill, save: save, current_player: window.character}));
 							});
 							break;
 						case "seer":
@@ -190,17 +199,21 @@
 								check --;
 								var all_players = window.data.all_players;
 								var target = all_players[check];
-								document.getElementById('seer-result').innerHTML = target.username + "是" + target.character +
-									"<button id='seer-confirm'>确认</button>";
-								$("#seer-confirm").click(function() {
-									window.ws.send(JSON.stringify({ret: "hunter", kill: 0, save: 0, current_player: window.character, uid: window.your_uid}));
-								})
+								if (target) {
+									document.getElementById('seer-result').innerHTML = target.username + "是" + target.character +
+										"<button id='seer-confirm'>确认</button>";
+									$("#seer-confirm").click(function() {
+										window.ws.send(JSON.stringify({ret: "hunter", kill: 0, save: 0, current_player: window.character}));
+									})
+								} else {
+									window.ws.send(JSON.stringify({ret: "hunter", kill: 0, save: 0, current_player: window.character}));
+								}
 							})
 							break;
 						case "hunter":
 							document.getElementById("current-info").innerHTML = "猎人请睁眼" + "你还活着" + "<button id='hunter-confirm'>确定</button>";
 							$("#hunter-confirm").click(function() {
-								window.ws.send(JSON.stringify({ret: "all", kill: 0, save: 0, current_player: window.character, uid: window.your_uid}));
+								window.ws.send(JSON.stringify({ret: "all", kill: 0, save: 0, current_player: window.character, pass: 0}));
 							})
 							break;
 					}
@@ -208,6 +221,7 @@
 					switch (current_character) {
 						case "wolf": 
 						    document.getElementById("current-info").innerHTML = "你被杀了";
+							break;
 						case "witch":
 							document.getElementById("current-info").innerHTML = "你被杀了" + youAreWitch(data);
 							$("#witch-confirm").click(function() {
@@ -218,17 +232,14 @@
 								var alive = window.data.alive;
 								var dead = window.data.dead;
 								save = dead[save] ? dead[save].uid : 0;
-								console.log("witch" + save);
 								kill = alive[kill] ? alive[kill].uid : 0;
-								console.log("witch", kill);
-								window.ws.send(JSON.stringify({ret: "seer", kill: kill, save: save, current_player: window.character, uid: window.your_uid}));
+								window.ws.send(JSON.stringify({ret: "seer", kill: kill, save: save, current_player: window.character}));
 							});
-							// window.ws.send(JSON.stringify({ret: "seer", kill: 0, save: 0, current_player: "witch", uid: window.your_uid}));
 							break;
 						case "seer":
 							document.getElementById("current-info").innerHTML = "你被杀了" + "<button id='seer-confirm'>确定</button>";
 							$("#seer-confirm").click(function() {
-								window.ws.send(JSON.stringify({ret: "hunter", kill: 0, save: 0, current_player: window.character, uid: window.your_uid}));
+								window.ws.send(JSON.stringify({ret: "hunter", kill: 0, save: 0, current_player: window.character}));
 							});
 							// window.ws.send(JSON.stringify({ret: "hunter", kill: 0, save: 0, current_player: "seer", uid: window.your_uid}));
 							break;
@@ -237,9 +248,9 @@
 							$("#hunter-confirm").click(function() {
 								var kill = parseInt(document.getElementById("hunter-input").value) || -1;
 								kill --;
-								var alive = window.data.alive;
+								var alive = window.data.all_alive;
 								kill = alive[kill] ? alive[kill].uid : 0;
-								window.ws.send(JSON.stringify({ret: "all", kill: 0, save: 0, current_player: window.character, uid: window.your_uid}))
+								window.ws.send(JSON.stringify({ret: "all", kill: kill, save: 0, current_player: window.character, pass: 0}));
 							})
 							break;
 					}
@@ -260,17 +271,24 @@
 					window.ws.close();
 				});
 			} else if (win == 2) {
-				document.getElementById("current-info").innerHTML = nightStatus(data);
-				$("#vote-confirm").click(function() {
-					var vote_input = document.getElementById("vote_input");
-					var input_value = -1
-					if (vote_input != null) {
-						input_value = parseInt(vote_input.value) || -1;
-					}
-					var all_alive = window.data.all_alive;
-					var vote_to = all_alive[input_value] ? all_alive[input_value].uid : 0;
-					window.ws.send(JSON.stringify({ret: "vote", current_player: "all", vote: vote_to, uid: window.your_uid}));
-				})
+				var pass = data.if_pass;
+				if (!pass) {
+					document.getElementById("current-info").innerHTML = nightStatus(data);
+					$("#vote-confirm").click(function() {
+						var vote_input = document.getElementById("vote-input");
+						var input_value = -1
+						if (vote_input != null) {
+							input_value = parseInt(vote_input.value) || -1;
+							input_value --;
+						}
+						var all_alive = window.data.all_alive;
+						var vote_to = all_alive[input_value] ? all_alive[input_value].uid : 0;
+						window.ws.send(JSON.stringify({ret: "vote", current_player: "all", vote: vote_to}));
+					})
+				} else {
+					window.ws.send(JSON.stringify({ret: "wolf", current_player: ""}));
+				}
+				
 			}
 		}
 
@@ -284,7 +302,7 @@
 		function ret6() {
 			document.getElementById("current-info").innerHTML = "投票结果：" + voteResult(data);
 			$("#your-confirm").click(function() {
-				window.ws.send(JSON.stringify({ret: "wolf", current_player: "vote", uid: window.your_uid}));
+				window.ws.send(JSON.stringify({ret: "all", current_player: "vote", pass: 1}));
 			})
 		}
 
@@ -311,176 +329,6 @@
 					ret6();
 				}
 			}
-		}
-
-
-		// function startVote(data) {
-		// 	var all_alive = data.all_alive;
-		// 	var vote_html = "开始投票";
-		// 	for (var i = 0; i < all_alive.length; i ++) {
-		// 		vote_html += 
-		// 	}
-		// }
-
-
-		// function youAreWitchKill(data) {
-		// 	var alive = data.alive;
-		// 	var kill_html = "<div>";
-		// 	for (var i = 0; i < alive.length; i ++) {
-		// 		kill_html += "<button>" + i + "." + alive[i].username + "</button>";
-		// 	}
-		// 	kill_html += "</div><div>要杀谁<input type='text' id='witch-kill'><button id='witch-kill-conf'>确认</button>" +
-		// 	    "<button id='witch-kill-canl'>不杀</button>";
-		// 	return kill_html;
-		// }
-
-		function goToRoom2() {
-			window.room = document.getElementById("room").value;
-			var name = document.getElementById("name").value;
-			window.ws = new WebSocket("ws://127.0.0.1:8888/CreateConnection?no=" + room + "&name=" + name);
-			ws.onmessage = function(event) {
-				window.data = JSON.parse(event.data);
-				var ret = data.ret;
-				if (ret === 0) {
-					document.getElementById('btn-init').disabled = true;
-					var current_num = data.current_num;
-					document.getElementById("current-info").innerHTML = "当前有" + current_num + "人";
-				} else if (ret === 1) {
-					var msg = data.msg;
-					document.getElementById("current-info").innerHTML = msg;
-				} else if (ret === 2) {
-					document.getElementById('btn-init').disabled = true;
-					window.character = data.your_character;
-					window.your_uid = data.your_uid;
-					console.log(window.your_uid);
-					document.getElementById("character").innerHTML = "你是" + character;
-					document.getElementById("current-info").innerHTML = "天黑了请闭眼";
-					if (character == "wolf") {
-				        document.getElementById("current-info").innerHTML = "狼人请睁眼" + youAreWolf(data);
-						$("#wolf-confirm").click(function() {
-							console.log(window.data);
-							var kill = parseInt(document.getElementById("wolf-input").value);
-							kill --;
-							var alive = window.data.alive;
-							var uid = alive[kill].uid;
-							window.ws.send(JSON.stringify({ret: "witch", kill: uid, current_player: window.character, uid: window.your_uid}));
-							document.getElementById("current-info").innerHTML = "狼人请闭眼";
-						})
-					}
-				} else if (ret === 3) {
-					var current_character = data.current_character;
-					document.getElementById("current-info").innerHTML = "天黑了请闭眼，" + current_character + "请睁眼";
-					var current_status = data.current_status;
-					console.log(current_character + "=>" + current_status);
-					if (current_character == window.character) {
-						if (current_status) {
-							switch (current_character) {
-								case "witch": 
-									document.getElementById("current-info").innerHTML = "女巫请睁眼" + youAreWitch(data);
-									$("#witch-confirm").click(function() {
-										var save = parseInt(document.getElementById("witch-save").value) || -1;
-										save --;
-										var kill = parseInt(document.getElementById("witch-kill").value) || -1;
-										kill --;
-										var alive = window.data.alive;
-										var dead = window.data.dead;
-										save = dead[save] ? dead[save].uid : 0;
-										kill = alive[kill] ? alive[kill].uid : 0;
-										window.ws.send(JSON.stringify({ret: "seer", kill: kill, save: save, current_player: window.character, uid: window.your_uid}));
-									});
-									break;
-								case "seer":
-									document.getElementById("current-info").innerHTML = "预言家请睁眼" + youAreSeer(data);
-									$("#seer-check").click(function() {
-										var check = parseInt(document.getElementById("seer-input").value);
-										check --;
-										var all_players = window.data.all_players;
-										var target = all_players[check];
-										document.getElementById('seer-result').innerHTML = target.username + "是" + target.character +
-											"<button id='seer-confirm'>确认</button>";
-										$("#seer-confirm").click(function() {
-											window.ws.send(JSON.stringify({ret: "hunter", kill: 0, save: 0, current_player: window.character, uid: window.your_uid}));
-										})
-									})
-									break;
-								case "hunter":
-									document.getElementById("current-info").innerHTML = "猎人请睁眼" + "你还活着" + "<button id='hunter-confirm'>确定</button>";
-									$("#hunter-confirm").click(function() {
-										window.ws.send(JSON.stringify({ret: "all", kill: 0, save: 0, current_player: window.character, uid: window.your_uid}));
-									})
-									break;
-							}
-						} else {
-							switch (current_character) {
-								case "witch":
-								    document.getElementById("current-info").innerHTML = "你被杀了" + youAreWitch(data);
-									$("#witch-confirm").click(function() {
-										var save = parseInt(document.getElementById("witch-save").value) || -1;
-										save --;
-										var kill = parseInt(document.getElementById("witch-kill").value) || -1;
-										kill --;
-										var alive = window.data.alive;
-										var dead = window.data.dead;
-										save = dead[save] ? dead[save].uid : 0;
-										kill = alive[kill] ? alive[kill].uid : 0;
-										window.ws.send(JSON.stringify({ret: "seer", kill: kill, save: save, current_player: window.character, uid: window.your_uid}));
-									});
-								    // window.ws.send(JSON.stringify({ret: "seer", kill: 0, save: 0, current_player: "witch", uid: window.your_uid}));
-									break;
-								case "seer":
-								    document.getElementById("current-info").innerHTML = "你被杀了" + "<button id='seer-confirm'>确定</button>";
-									$("#seer-confirm").click(function() {
-										window.ws.send(JSON.stringify({ret: "hunter", kill: 0, save: 0, current_player: window.character, uid: window.your_uid}));
-									});
-								    // window.ws.send(JSON.stringify({ret: "hunter", kill: 0, save: 0, current_player: "seer", uid: window.your_uid}));
-									break;
-								case "hunter": 
-								    document.getElementById("current-info").innerHTML = "猎人请睁眼" + "你已经死了要带走谁?" + youAreDeadHunter(data);
-									$("#hunter-confirm").click(function() {
-										var kill = parseInt(document.getElementById("hunter-input").value) || -1;
-										kill --;
-										var alive = window.data.alive;
-										kill = alive[kill] ? alive[kill].uid : 0;
-										window.ws.send(JSON.stringify({ret: "all", kill: 0, save: 0, current_player: window.character, uid: window.your_uid}))
-									})
-									break;
-							}
-						}
-					}
-				} else if (ret === 4) {
-					var win = data.win;
-					if (win == 0) {
-						document.getElementById("current-info").innerHTML = "狼人获胜" + "<button id='exit'>游戏结束</button>";
-						$("#exit").click(function() {
-							window.ws.close();
-						});
-					} else if (win == 1) {
-						document.getElementById("current-info").innerHTML = "好人赢了" + "<button id='exit'>游戏结束</button>";
-						$("#exit").click(function() {
-							window.ws.close();
-						});
-					} else if (win == 2) {
-						document.getElementById("current-info").innerHTML = nightStatus(data);
-						$("#vote-confirm").click(function() {
-							var vote_input = document.getElementById("vote_input");
-							var input_value = -1
-							if (vote_input != null) {
-								input_value = parseInt(vote_input.value) || -1;
-							}
-							var all_alive = window.data.all_alive;
-							var vote_to = all_alive[input_value] ? all_alive[input_value].uid : 0;
-							window.ws.send(JSON.stringify({ret: "vote", current_player: "all", vote: vote_to, uid: window.your_uid}));
-						})
-					}
-				} else if (ret === 5) {
-					var current_status = data.current_status;
-					var voted = data.voted;
-					var vote_num = data.vote_num;
-					document.getElementById("current-info").innerHTML = "<div>" + vote_num + "人已投票</div>"; 
-				} else if (ret === 6) {
-					document.getElementById("current-info").innerHTML = "投票结果：";
-				}
-			};
 		}
 
         // $("body").on("click", "#wolf-confirm", function() {

@@ -12,6 +12,8 @@ class Player2(object):
         self.character = None
         self.char = None
         self.voted = False
+        self.killed_by = ""
+        self.saved_by = ""
 
 
 class Player(object):  # Not use

@@ -158,27 +158,28 @@ class CreateConnection(tornado.websocket.WebSocketHandler):
                     send_dict["wolves"] = counterpart
                 m_sender.write_message(send_dict)
 
-    def change_status(self, msg, character, uid):
+    def change_status(self, msg, character):
         # status = self.room.get_player(uid).alive
         status = self.you.alive
         if character == "wolf":
             uid_to_kill = msg["kill"]
-            self.room.kill_player(uid_to_kill)
+            self.room.kill_player(uid_to_kill, "wolf")
         if character == "witch":
             uid_to_kill = msg["kill"]
-            ret_kill = self.room.kill_player(uid_to_kill)
+            ret_kill = self.room.kill_player(uid_to_kill, "witch")
             self.you.char.poison_number = 0 if ret_kill else 1
             uid_to_save = msg["save"]
             ret_save = self.room.save_player(uid_to_save)
             self.you.char.antidote_number = 0 if ret_save else 1
-            logging.warn("witch turn: kill->%s, save->%s", uid_to_kill, uid_to_save)
+            if not status:
+                self.you.char.antidote_number = 0
         if character == "hunter":
             uid_to_kill = msg["kill"]
             if uid_to_kill == 0:
                 pass
             else:
-                ret_kill = self.room.kill_player(uid_to_kill)
-                self.you.char.Hunt = 0 if ret_save else 1
+                ret_kill = self.room.kill_player(uid_to_kill, "hunter")
+                self.you.char.hunt = 0 if ret_kill else 1
         if character == "all":
             uid_to_vote = msg["vote"]
             self.room.vote_player(uid_to_vote)
@@ -189,16 +190,18 @@ class CreateConnection(tornado.websocket.WebSocketHandler):
         msg = json.loads(msg)
         character = msg["current_player"]
         next_player = msg["ret"]
-        uid = msg["uid"]
-        self.change_status(msg, character, uid)
+        self.change_status(msg, character)
         if next_player == "wolf":
             if_wolf = True
-        dead_players = self.room.dead
+        attrs = ["character", "username", "uid", "alive", "killed_by"]
         all_alive = self.room.get_all_alive()
+        all_alive = self.get_attrs(attrs, all_alive)
         all_players = self.room.get_all_players()
-        attrs = ["character", "username", "uid", "alive"]
         all_players = self.get_attrs(attrs, all_players)
+        dead_players = self.room.dead
         dead = self.get_attrs(attrs, dead_players)
+        alive_players = self.room.get_alive_players(self, if_wolf)
+        alive = self.get_attrs(attrs, alive_players)
 
         if next_player == "vote":
             alive_num = len(all_alive)
@@ -218,26 +221,27 @@ class CreateConnection(tornado.websocket.WebSocketHandler):
                     current_status = m["player"].alive
                     m_sender.write_message(dict(ret=6, vote_result=vote_result))
         elif next_player == "all":
-            all_alive_attr = self.get_attrs(attrs, all_alive)
+            if_pass = msg["pass"]
+            #all_alive_attr = self.get_attrs(attrs, all_alive)
             win = self.room.judge_win()
             for m in self.room.players:
                 m_sender = m["sender"]
                 current_status = m["player"].alive
-                m_sender.write_message(dict(ret=4, all_alive=all_alive_attr, dead=dead, win=win, current_status=current_status))
+                m_sender.write_message(dict(ret=4, all_alive=all_alive, dead=dead, win=win, current_status=current_status, if_pass=if_pass))
             self.room.dead = []
         else:
-            alive_players = self.room.get_alive_players(self, if_wolf)
-            alive = self.get_attrs(attrs, alive_players)
             wolves = list(self.room.wolves)
             counterpart = self.get_attrs(attrs, wolves)
             for m in self.room.players:
                 m_sender = m["sender"]
                 current_status = m["player"].alive
+                logging.warn("%s: %s, killed by: %s", m["player"].character, current_status, m["player"].killed_by)
                 player_skill = m["player"].char.__dict__
-                m_sender.write_message(dict(ret=3, current_status=current_status, current_character=next_player, alive=alive, dead=dead, all_players=all_players, player_skill=player_skill, wolves=counterpart))
+                m_sender.write_message(dict(ret=3, current_status=current_status, current_character=next_player, alive=alive, dead=dead, all_players=all_players, player_skill=player_skill, wolves=counterpart, all_alive=all_alive))
 
     def on_close(self):
-        return
+        current_room_id = self.room.room_id
+        del self.rooms[current_room_id]
 
     def check_origin(self, origin):
         return True

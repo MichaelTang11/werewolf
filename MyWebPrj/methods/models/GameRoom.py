@@ -69,11 +69,11 @@ class GameRoom2(object):
                 alive_players.append(m_player)
         return alive_players
 
-    def kill_player(self, player_id):
+    def kill_player(self, player_id, killer):
         killed = self.get_player(player_id)
         if killed:
-            logging.warn("kill: %s, %s", killed.username, killed.character)
             killed.alive = False
+            killed.killed_by = killer
             self.dead.append(killed)
             return 1
         else:
@@ -82,7 +82,6 @@ class GameRoom2(object):
     def save_player(self, player_id):
         saved = self.get_player(player_id)
         if saved:
-            logging.warn("save: %s, %s", saved.username, saved.character)
             saved.alive = True
             self.dead.remove(saved)
             return 1
@@ -90,9 +89,9 @@ class GameRoom2(object):
             return 0
 
     def vote_player(self, player_id):
-        voted = self.get_player(player_id)
-        if voted:
-            voted.vote += 1
+        player = self.get_player(player_id)
+        if player:
+            player.vote += 1
 
     def get_all_players(self):
         all_players = []
@@ -133,16 +132,17 @@ class GameRoom2(object):
             m_player = m["player"]
             players.append(m_player)
         _max = sorted(players, key=lambda p: p.vote, reverse=True)[0]
+        _max = _max.vote
         for m in self.players:
             m_player = m["player"]
             if m_player.vote == _max:
                 m_player.alive = False
+                m_player.killed_by = "all"
                 target.append(m_player)
             m_player.vote = 0
             m_player.voted = False
         attrs = ["character", "username", "uid"]
         target = self.get_attrs(attrs, target)
-        logging.warn(target)
         return {'get_vote': _max, "target": target}
 
     def judge_win(self):
