@@ -38,9 +38,11 @@ class Character(object):
         self.__Life=Status
 
 class Villager(Character):
+    name = "villager"
     pass
 
 class Werewolf(Character):
+    name = "wolf"
 
     @staticmethod
     def KillPerson(PlayerID,room):
@@ -59,9 +61,11 @@ class Werewolf(Character):
         return FriendID
 
 class Witch(Character):
+    name = "witch"
 
-    __Antidote_Number=1
-    __Poison_Number=1
+    def __init__(self):
+        self.antidote_number = 1
+        self.poison_number = 1
 
     def Save(self,PlayerID, room):
         players = room.Players
@@ -77,14 +81,21 @@ class Witch(Character):
     def ReturnMedicineStatus(self):
         return self.__Antidote_Number,self.__Poison_Number
 
+
 class Hunter(Character):
+    name = "hunter"
+
+    def __init__(self):
+        self.hunt = 1
 
     @staticmethod
     def Shoot(PlayerID, room):
         players = room.Players
         players[PlayerID].Life = 0
 
+
 class Seer(Character):
+    name = "seer"
 
     @staticmethod
     def Check(PlayerID, room):

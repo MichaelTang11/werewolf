@@ -1,8 +1,169 @@
+import logging
 from methods.models.Characters import *
 import random
 
 
-class GameRoom(object):
+class GameRoom2(object):
+    rooms = {}
+    room_setting = {9: {'wolf': 3, 'god': 3, 'villager': 3}}
+
+    def __init__(self, room_id, player_num):
+        self.room_id = room_id
+        self.player_num = player_num
+        self.rooms[self.room_id] = self
+        self.players = []
+        self.wolves = set()
+        self.dead = []
+
+    @classmethod
+    def get_room(cls, room_id):
+        room = cls.rooms.get(room_id, None)
+        return room
+
+    def add_player(self, sender, player):
+        if len(self.players) < self.player_num:
+            self.players.append(dict(sender=sender, player=player))
+            return len(self.players)
+        else:
+            return -1
+
+    def give_character(self):
+        characters = []
+        characters.append(Witch())
+        characters.append(Hunter())
+        characters.append(Seer())
+        setting = self.room_setting[self.player_num]
+        characters.extend([Werewolf() for i in range(setting["wolf"])])
+        characters.extend([Villager() for i in range(setting["villager"])])
+
+        for i in range(self.player_num):
+            j = random.randint(0, self.player_num-1)
+            characters[i], characters[j] = characters[j], characters[i]
+
+        for i in range(self.player_num):
+            name = characters[i].name
+            self.players[i]["player"].character = name
+            self.players[i]["player"].char = characters[i]
+            if name == "wolf":
+                self.players[i]["player"].if_wolf = True
+                self.wolves.add(self.players[i]["player"])
+
+    def get_alive_players(self, sender, if_wolf=False):
+        alive_players = set()
+        for m in self.players:
+            m_sender = m["sender"]
+            m_player = m["player"]
+            if m_player.alive and sender != m_sender:
+                alive_players.add(m_player)
+            if if_wolf and sender == m_sender:
+                alive_players.add(m_player)
+        if if_wolf:
+            alive_players -= self.wolves
+        return list(alive_players)
+
+    def get_all_alive(self):
+        alive_players = []
+        for m in self.players:
+            m_player = m["player"]
+            if m_player.alive:
+                alive_players.append(m_player)
+        return alive_players
+
+    def kill_player(self, player_id, killer):
+        killed = self.get_player(player_id)
+        if killed:
+            killed.alive = False
+            killed.killed_by = killer
+            self.dead.append(killed)
+            return 1
+        else:
+            return 0
+
+    def save_player(self, player_id):
+        saved = self.get_player(player_id)
+        if saved:
+            saved.alive = True
+            self.dead.remove(saved)
+            return 1
+        else:
+            return 0
+
+    def vote_player(self, player_id):
+        player = self.get_player(player_id)
+        if player:
+            player.vote += 1
+
+    def get_all_players(self):
+        all_players = []
+        for m in self.players:
+            m_player = m["player"]
+            all_players.append(m_player)
+        return all_players
+
+    def get_player(self, player_id):
+        for m in self.players:
+            m_player = m["player"]
+            if m_player.uid == player_id:
+                return m_player
+        else:
+            return None
+
+    def get_player_by_sender(self, sender):
+        for m in self.players:
+            if m["sender"] == sender:
+                return m["player"]
+
+    def vote_finish(self):
+        voted = []
+        for m in self.players:
+            m_player = m["player"]
+            if m_player.voted == True:
+                voted.append(m_player)
+        return voted
+
+    def get_attrs(self, attrs, obj_list):
+        return [{attr: getattr(obj, attr) for attr in attrs} for obj in obj_list]
+
+    def vote_caculate(self):
+        target = []
+        _max = 0
+        players = []
+        for m in self.players:
+            m_player = m["player"]
+            players.append(m_player)
+        _max = sorted(players, key=lambda p: p.vote, reverse=True)[0]
+        _max = _max.vote
+        for m in self.players:
+            m_player = m["player"]
+            if m_player.vote == _max:
+                m_player.alive = False
+                m_player.killed_by = "all"
+                target.append(m_player)
+            m_player.vote = 0
+            m_player.voted = False
+        attrs = ["character", "username", "uid"]
+        target = self.get_attrs(attrs, target)
+        return {'get_vote': _max, "target": target}
+
+    def judge_win(self):
+        good_dead = 0
+        bad_dead = 0
+        for m in self.players:
+            m_player = m["player"]
+            if not m_player.alive:
+                if m_player.character == "wolf":
+                    bad_dead += 1
+                else:
+                    good_dead += 1
+        if good_dead == 6:
+            return 0
+        elif bad_dead == 3:
+            return 1
+        else:
+            return 2
+
+
+class GameRoom(object):  # Not use
     Rooms = {}
     __Players = {}
     __DeadPlayerID = []

@@ -1,7 +1,22 @@
-from methods.models.GameRoom import GameRoom
+from methods.models.GameRoom import GameRoom, GameRoom2
 from methods.models.Characters import *
 
-class Player(object):
+
+class Player2(object):
+    def __init__(self, _id, username):
+        self.uid = _id
+        self.username = username
+        self.alive = True
+        self.if_wolf = False
+        self.vote = 0
+        self.character = None
+        self.char = None
+        self.voted = False
+        self.killed_by = ""
+        self.saved_by = ""
+
+
+class Player(object):  # Not use
     """玩家类"""
     __RoomID = ''
     __Character = None
